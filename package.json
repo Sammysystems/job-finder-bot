@@ -4,9 +4,12 @@
   "type": "module",
   "scripts": {
     "dev": "tsx src/run.ts",
+    "daily": "tsx src/run.ts",
     "test:fetch": "tsx scripts/test-fetch.ts",
     "test:score": "tsx scripts/test-score.ts",
-    "build": "tsc --noEmit"
+    "build": "tsc --noEmit",
+    "listener": "node --import tsx src/approval-listener-text.ts",
+    "start:listener": "node --import tsx src/approval-listener-text.ts"
   },
   "dependencies": {
     "@types/nodemailer": "^8.0.2",
