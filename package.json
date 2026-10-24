@@ -1,0 +1,27 @@
+{
+  "name": "job-finder-bot",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/run.ts",
+    "test:fetch": "tsx scripts/test-fetch.ts",
+    "test:score": "tsx scripts/test-score.ts",
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@types/nodemailer": "^8.0.2",
+    "@voltagent/core": "2.8.0",
+    "@voltagent/logger": "2.0.2",
+    "ai": "^6.0.209",
+    "dotenv": "^16.4.5",
+    "fast-xml-parser": "^5.11.2",
+    "nodemailer": "^10.2.1",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "playwright-core": "^1.64.1",
+    "tsx": "4.23.1",
+    "typescript": "5.7.3"
+  }
+}
