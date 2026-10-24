@@ -1,0 +1,31 @@
+services:
+  # Approval listener - runs 24/7, listens for Telegram replies and sends emails
+  - type: worker
+    name: job-finder-approvals
+    runtime: node
+    repo: https://github.com/Sammysystems/job-finder-bot
+    branch: main
+    buildCommand: npm install
+    startCommand: npm run listener
+    autoDeploy: true
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+
+  # Daily job runner - runs once per day at 07:00
+  - type: cron
+    name: job-finder-daily
+    runtime: node
+    repo: https://github.com/Sammysystems/job-finder-bot
+    branch: main
+    schedule: "0 7 * * *"
+    buildCommand: npm install
+    startCommand: npm run daily
+    autoDeploy: true
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
