@@ -1,0 +1,72 @@
+﻿[
+    {
+        "name":  "Sammysystems",
+        "html_url":  "https://github.com/Sammysystems/Sammysystems",
+        "description":  "Systems for the work businesses keep doing by hand. Ops desks, concierges, no-show recovery, payment verification.",
+        "language":  null,
+        "updated_at":  "2026-10-22T15:04:35Z"
+    },
+    {
+        "name":  "instant-quote",
+        "html_url":  "https://github.com/Sammysystems/instant-quote",
+        "description":  "Deterministic instant-quote engine. One bill of materials, one price - no model arithmetic.",
+        "language":  "TypeScript",
+        "updated_at":  "2026-10-21T15:23:35Z"
+    },
+    {
+        "name":  "proofgate",
+        "html_url":  "https://github.com/Sammysystems/proofgate",
+        "description":  "Payment verification without a payment gateway. Gemini Vision reads the bank-transfer receipt and returns CONFIRMED or HOLD. 21/21 tests, code + security reviews committed. Free tiers only.",
+        "language":  "JavaScript",
+        "updated_at":  "2026-10-21T15:23:34Z"
+    },
+    {
+        "name":  "clearsmile-patient-reactivation",
+        "html_url":  "https://github.com/Sammysystems/clearsmile-patient-reactivation",
+        "description":  "Patient reactivation and no-show recovery. 6-month overdue scan, day 0/7/14 sequence, self-serve booking, staff handoff queue. Outbound email is opt-in, capped, and secret-authenticated.",
+        "language":  "TypeScript",
+        "updated_at":  "2026-10-21T15:23:33Z"
+    },
+    {
+        "name":  "dmi-concierge",
+        "html_url":  "https://github.com/Sammysystems/dmi-concierge",
+        "description":  "Embeddable booking concierge. Money never comes from the model - an off-rate-card naira figure is caught in code and corrected. One-line script embed, no database, 33 e2e checks.",
+        "language":  "TypeScript",
+        "updated_at":  "2026-10-21T15:23:32Z"
+    },
+    {
+        "name":  "realestate-portal",
+        "html_url":  "https://github.com/Sammysystems/realestate-portal",
+        "description":  "Ops desk for real-estate agencies. 4-hour SLA clock per lead, auto first-reply built from real property facts, stalled land searches flagged by stage day-limit, every email logged. Live demo.",
+        "language":  "TypeScript",
+        "updated_at":  "2026-10-21T15:23:31Z"
+    },
+    {
+        "name":  "outbound-campaign",
+        "html_url":  "https://github.com/Sammysystems/outbound-campaign",
+        "description":  "$0 outbound stack: cron-job.org scheduler + Vercel serverless + InsForge Postgres + Gmail SMTP. Event-driven webhooks enroll leads and drip one email per cron tick, with a dashboard to manage sequences.",
+        "language":  "TypeScript",
+        "updated_at":  "2026-10-20T15:03:22Z"
+    },
+    {
+        "name":  "lead-followup",
+        "html_url":  "https://github.com/Sammysystems/lead-followup",
+        "description":  "Lead follow-up, booking and no-show recovery for real estate agencies. Every lead on a 4-hour SLA clock with an automatic first reply built from real property facts.",
+        "language":  "TypeScript",
+        "updated_at":  "2026-10-20T15:03:19Z"
+    },
+    {
+        "name":  "website-builder-setup",
+        "html_url":  "https://github.com/Sammysystems/website-builder-setup",
+        "description":  "Build professional animated websites with Claude Code — no coding needed. One install, three tools: UI/UX Pro Max + Framer Motion + 21st.dev. By @tenfoldmarc",
+        "language":  "JavaScript",
+        "updated_at":  "2026-10-20T14:59:09Z"
+    },
+    {
+        "name":  "landsandhousing",
+        "html_url":  "https://github.com/Sammysystems/landsandhousing",
+        "description":  "Real estate advisory in Uyo, Akwa Ibom - with an assistant that answers honestly.",
+        "language":  "TypeScript",
+        "updated_at":  "2026-10-20T14:59:00Z"
+    }
+]
