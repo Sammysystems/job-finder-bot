@@ -1,6 +1,6 @@
 import type { Job } from "../types.js";
 import type { ScoredJob } from "../score.js";
-import { prepareEmailPacket, formatEmailPacketForTelegram } from "./approval.js";
+import { prepareEmailPacket } from "./approval.js";
 
 function escapeHtml(text: string): string {
   return text
@@ -17,14 +17,18 @@ export async function sendOutreachPackets(jobs: (Job | ScoredJob)[]): Promise<{ 
   let sent = 0;
   for (const job of jobs) {
     try {
-      const { draft, toEmail } = prepareEmailPacket(job as Job);
-      let text = formatEmailPacketForTelegram(job as Job, draft, toEmail || (job as Job).email);
-      text += `\n\n<i>Reply LIST to manage this draft via text.</i>`;
-      const keyboard = {
-        inline_keyboard: [
-          [{ text: "🔗 View Job", url: job.url }],
-        ],
-      };
+      const { draft } = prepareEmailPacket(job as Job);
+      const toEmail = (draft.toEmail || (job as Job).email || "").trim();
+      
+      let text = `📧 Email Draft\n`;
+      text += `Role: ${escapeHtml(job.title)}\n`;
+      text += `Company: ${escapeHtml(job.company || "Unknown")}\n`;
+      if (toEmail) text += `To: ${escapeHtml(toEmail)}\n`;
+      text += `Source: ${(job as Job).source || "unknown"}\n\n`;
+      text += `Subject: ${escapeHtml(draft.subject)}\n\n`;
+      text += `${escapeHtml(draft.body)}\n\n`;
+      text += `🔗 Job Link: ${job.url}\n`;
+      text += `\n— Copy & send manually via Gmail —`;
       
       const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: "POST",
@@ -34,7 +38,6 @@ export async function sendOutreachPackets(jobs: (Job | ScoredJob)[]): Promise<{ 
           text,
           parse_mode: "HTML",
           disable_web_page_preview: true,
-          reply_markup: keyboard,
         }),
       });
       if (res.ok) sent++;
