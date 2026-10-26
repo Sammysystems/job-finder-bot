@@ -1,4 +1,4 @@
-import fs from "node:fs";
+﻿import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Job } from "../types.js";
@@ -16,7 +16,7 @@ interface Repo {
 }
 
 interface OutreachProfile {
-  sender: { name: string; github: string; githubUsername: string; email: string; gmailAppPassword: string };
+  sender: { name: string; github: string; githubUsername: string; email: string };
   prioritizeRepos: string[];
   avoidRepos: string[];
   rules: any;
@@ -42,7 +42,12 @@ function loadProfile(): OutreachProfile {
     }
   } catch {}
   return {
-    sender: { name: "Samuel", github: "https://github.com/Sammysystems", githubUsername: "Sammysystems", email: "", gmailAppPassword: "" },
+    sender: {
+      name: process.env.SENDER_NAME || "AI Automation Engineer",
+      github: process.env.SENDER_GITHUB || "https://github.com/Sammysystems",
+      githubUsername: "Sammysystems",
+      email: "",
+    },
     prioritizeRepos: ["proofgate", "outbound-campaign", "dmi-concierge", "lead-followup", "realestate-portal", "instant-quote", "clearsmile-patient-reactivation"],
     avoidRepos: ["website-builder-setup", "Sammysystems"],
     rules: {}
@@ -165,7 +170,7 @@ ${p2}
 
 ${p3}
 
-– Samuel
+— ${profile.sender.name}
 ${profile.sender.github}`;
 
   return { subject, body, repo };

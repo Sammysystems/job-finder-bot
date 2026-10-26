@@ -5,3 +5,4 @@ logs/
 captures/
 dist/
 *.log
+profile/outreach.json

@@ -17,7 +17,7 @@ function loadProfile() {
       return JSON.parse(clean);
     }
   } catch {}
-  return { sender: { github: "https://github.com/Sammysystems" } };
+  return { sender: { github: process.env.SENDER_GITHUB || "https://github.com/Sammysystems" } };
 }
 
 export function prepareEmailPacket(job: Job) {

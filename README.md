@@ -1,145 +1,165 @@
 # Job Finder Bot
 
-A $0/run personal job finder built for finding high-quality, remote **AI/automation/agent/integration** roles and running email-first cold outreach with human approval.
+A job-search pipeline that turns seven free job feeds into a short, ranked shortlist of remote
+**AI automation / agent / LLM integration** roles — and drafts a grounded cold email for each one,
+ready to copy and send.
 
-> **Rule:** No auto-submitting to ATS forms (Greenhouse/Lever/Workday/Ashby/Workable). Every email goes through explicit approval before sending.
+Built as a personal tool. The interesting work is not the fetching; it is deciding what *not* to show,
+and writing outreach that cannot invent a fact.
 
-## Overview
+> **No auto-apply, ever.** There is no ATS submission path (Greenhouse, Lever, Workday, Ashby,
+> Workable). Every packet is sent to Telegram for a human to read and send.
 
-- **Purpose:** Deliver 2–5 relevant, mid-level remote AI/automation roles per day to Telegram with grounded cold emails ready for approval.
-- **Focus:** AI automation / AI agents / LLM integrations / workflow automation. Prioritizes roles that actually use TypeScript/Node/React/Next.js where relevant.
-- **Outreach:** Email-first cold outreach with a strict 3-paragraph style (problem-first opener, "This is where I come in" once, proposal + CTA asking for a short conversation), signed as **Samuel**.
-- **Approval:** Text-based approvals in Telegram (LIST/SEND/EDIT/SKIP) with YES/NO confirmations. Only "View Job" button remains on packets.
-- **Cost:** $0/run. Uses free job sources only. No n8n. Secrets in `.env` only.
+---
+
+## The problem
+
+Two failure modes make job-search automation useless:
+
+1. **Noise.** Aggregators return hundreds of listings; most are the wrong role, the wrong
+   timezone, or country-locked. A daily digest that is 80% irrelevant trains you to ignore it.
+2. **Fabrication.** "AI outreach" tools generate confident emails containing claims the model made up.
+   A single invented metric ends the conversation.
+
+This pipeline is built around both constraints: **default-deny filtering**, and **deterministic,
+evidence-bound drafting** — no LLM in the email path at all.
 
 ## Architecture
 
-```text
-fetch (ashby, remotive, jobicy, arbeitnow, remoteok, weworkremotely, HN "Who's Hiring") 
-  -> normalize 
-  -> dedupe (seen-jobs.json) 
-  -> eligibility (onsite/hybrid rejected, "everywhere" geography weighting)
-  -> score/gate (strict AI/automation signals) 
-  -> top matches (up to 10)
-  -> Telegram brief + email packets (if direct email found)
+```mermaid
+flowchart LR
+  S[7 free sources<br/>Ashby · Remotive · Jobicy<br/>Arbeitnow · RemoteOK<br/>WeWorkRemotely · HN] --> N[normalize]
+  N --> D[dedupe]
+  D --> E[eligibility]
+  E --> SC[score + gate]
+  SC --> R[rank & select<br/>max 10, max 2 per company]
+  R --> B[Telegram brief]
+  R --> DR[grounded draft]
+  DR --> P[Telegram packet]
+  P --> H[human sends / applies]
 ```
 
-## Key Features
+Every source passes through one normalizer: stable id, canonical URL, plain-text description capped
+at 2k, and a remote flag the scorer can trust. Dedupe collapses the same posting reached through two
+feeds using a canonical URL plus a fuzzy company/title match.
 
-- **Multi-source ingestion** - Ashby, Remotive, Jobicy, Arbeitnow, RemoteOK, WeWorkRemotely, and HackerNews "Ask HN: Who is hiring?" (HN Algolia parsing extracts emails/links)
-- **Strict filtering** - Blocks SRE/DevOps/Infra/Data/ML/Mobile/Go/PHP/Ruby/Java/SAP/Design/GTM. Generic SWE only accepted with strong AI/automation signals
-- **Grounded cold emails** - Drafted from the JD with repo-aware selection from `github-repos.json`. Matches your sample style exactly.
-- **Email-first with Gmail** - Sends via Nodemailer + Gmail SMTP using an App Password. Configured via `profile/outreach.json`
-- **Text-based approval system** - Reliable alternative to flaky Telegram callbacks. Enforces "one action = one draft", never mass-sends on bare `SEND`
-- **Edit flow** - Edit drafts in-place via Telegram, parse SUBJECT/BODY or flexible formats
-- **Application tracking** - All drafts tracked in `data/applications.json` with statuses: `drafted`, `edited`, `sent`, `skipped`, `failed`
-- **Windows automation** - Runs daily via Task Scheduler (`JobFinderBot-Daily` at 07:00). Approval listener auto-starts via `JobFinderBot-Approvals`
+## What it produces
 
-## How It Runs
-
-### Daily batch (07:00)
-1. `run-daily.ps1` triggers the VoltAgent workflow
-2. Fetches all sources, normalizes, deduplicates against `data/seen-jobs.json`
-3. Filters and scores based on keywords/eligibility
-4. Sends **one Telegram brief** + **email packets** for jobs with direct emails
-5. All jobs come in **one batch** from that run (not spread throughout the day)
-
-### Approvals (throughout the day)
-The text listener `src/approval-listener-text.ts` must be running on the machine to handle approvals and actually send emails.
-
-**Commands (reply in Telegram):**
-```text
-LIST                -> Show all pending drafts with numbers/IDs
-SEND [#|ID]         -> Send a specific draft (asks YES/NO confirmation)
-EDIT [#|ID]         -> Enter edit mode, paste updated email
-SKIP [#|ID]         -> Skip a draft (asks YES/NO confirmation)
-SHOW [#|ID]         -> View full subject/body
-CANCEL / NO         -> Cancel current action/edit/confirmation
-```
-
-**Important:** If you have multiple pending and type `SEND` with no number, it will ask you to pick which one. It will **never** send all at once.
-
-## Tracking Applications
-
-All outreach state is tracked in `data/applications.json`:
-
-```json
-{
-  "jobId": "...",
-  "job": { "title": "...", "company": "...", "url": "...", "email": "..." },
-  "draft": { "subject": "...", "body": "...", "toEmail": "..." },
-  "status": "drafted|edited|sent|skipped|failed",
-  "createdAt": "...",
-  "sentAt": "...",
-  "messageId": "..."
-}
-```
-
-- `LIST` shows current pending (drafted/edited)
-- When sent via Gmail, status becomes `sent` with `messageId` and `sentAt`
-- Skipped items become `skipped` and won't be shown in pending
-
-## Files & Structure
+One Telegram brief per run, followed by one packet per selected role:
 
 ```text
-src/
-├── approval-listener-text.ts   # Text-based Telegram approval listener (must stay running)
-├── run.ts                     # Manual run entry
-├── config/keywords.ts         # Tightened AI/automation filters
-├── outreach/
-│   ├── applications.ts        # Application/draft tracking
-│   ├── approval.ts            # Packet formatting
-│   ├── draft-email.ts         # 3-paragraph cold email drafter
-│   ├── edit-session.ts        # Edit + confirmation session state
-│   ├── gmail-sender.ts        # Nodemailer Gmail SMTP sender
-│   └── notify-outreach.ts     # Send packets to Telegram (View Job only)
-├── signals/hn.source.ts       # HN "Who's Hiring" parser
-└── workflows/job-finder.workflow.ts
+📧 Email Draft
 
-data/                          # Runtime state (gitignored)
-profile/outreach.json          # Sender profile, repos, priorities/avoids
-.github-repos.json            # GitHub repos for grounding
-.env                          # Secrets (gitignored)
-run-daily.ps1                 # Daily scheduler script
+Role:    AI Automation Engineer
+Company: Example Co
+To:      hiring@example.com          (or: Not found – apply via Job Link)
+Source:  Ashby
+Subject: AI Automation Engineer at Example Co
+
+Hi,
+
+<problem-first paragraph, written from the job description>
+
+<why this specific work matters to them>
+
+<one concrete first step + a short CTA>
+
+— <your sender name>
+https://github.com/your-handle
+
+🔗 Job Link
+https://jobs.example.com/ai-automation-engineer
+
+— Copy & send/apply manually —
 ```
 
-## Laptop On/Off Behavior
+Packets are produced for **every** selected role, not just the ones with a contact address. When the
+posting lists no email, the packet says so and links the application page instead of silently skipping it.
 
-- **Seeing jobs at 07:00**: The `JobFinderBot-Daily` task can wake the laptop if "Wake the computer to run this task" is enabled and on AC. It will send packets to Telegram regardless of you using the laptop.
-- **Approving & sending emails**: **Requires the laptop to be ON with `approval-listener-text.ts` running.** If it's off/asleep/hibernating, replies won't be processed and emails won't send. 
-- **Current setup**: Listener is auto-started via Task Scheduler at logon and started now. For lid-closed operation, set "Close lid action" to "Do nothing" on AC and keep plugged in.
+## Design decisions
 
-**Note:** If laptop is off, you can still see packets in Telegram and manually copy the email (subject + body + recipient) and send it via Gmail yourself. The packets already include the grounded cold email and recipient.
+**Default-deny geography.** A location passes only when it is an open region, is empty, or contains
+nothing but remote words. Any leftover place name — "Kansas", "Seoul", "Americas" — means the role is
+not worldwide. Country restictions are also read out of the title, because postings often encode them
+there ("Backend Developer — Remote from EU").
 
-## Setup
+**Two-tier role matching.** A title that names AI/automation work passes on its own. A generic
+engineering title passes only when the description proves AI/automation work. Everything else is
+rejected, no matter how fresh it is.
 
-### Prerequisites
-- Node.js 20+
-- Telegram bot + chat ID
-- Gmail account with App Password
-- Windows with Task Scheduler
+**Deterministic drafting.** The email is assembled from the job description and a portfolio repo the
+candidate actually owns. There is no model call, so there is nothing to hallucinate. This was a
+deliberate trade: a slightly less fluent email that is always true beats a fluent one that is sometimes not.
 
-### Environment
-Copy `.env.example` to `.env` and fill:
-```env
-TELEGRAM_BOT_TOKEN=...
-TELEGRAM_CHAT_ID=...
-```
+**Human approval.** Drafts are delivered, not sent. The bot never emails on its own.
 
-### Install & run
+**Ranking, not just filtering.** Roles are scored on role match, description signals, freshness,
+seniority, eligibility tier, and salary presence. At most two roles per company, so one employer
+cannot fill the brief with near-identical postings.
+
+## Stack
+
+TypeScript · Node.js · VoltAgent workflow runtime · Zod · Telegram Bot API · Nodemailer (optional send path) · GitHub Actions / Windows Task Scheduler
+
+No database. State is two JSON files on disk (`data/seen-jobs.json`, `data/applications.json`),
+which keeps the whole thing runnable on a free CI runner.
+
+## Quickstart
+
 ```bash
 npm install
+cp .env.example .env      # add TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID
 npm run build
-npm run dev  # manual run
+npm test
+npm run dev               # one run: fetch -> filter -> notify
 ```
 
-### Schedule
-`JobFinderBot-Daily` runs `run-daily.ps1` at 07:00. `JobFinderBot-Approvals` starts the text listener at logon.
+Optional, only if you want the bot to send mail itself (off by default):
 
-## Repo
-**GitHub:** [github.com/Sammysystems/job-finder-bot](https://github.com/Sammysystems/job-finder-bot) (private)
+```env
+GMAIL_USER=you@gmail.com
+GMAIL_APP_PASSWORD=your-app-password
+```
 
-## Notes
-- Strictly email-first. Link-only roles show an "Apply Packet" style context but we don't auto-apply.
-- Focus stays true to AI/automation/agent/integration work. Filters are aggressive by design to avoid noise.
-- All approvals are manual and intentional. The flow is built to keep you in control. 
+### Configuration
+
+| Variable | Purpose |
+| --- | --- |
+| `JOB_SOURCE` | `stub` for offline fixtures, otherwise a specific source id |
+| `JOB_SOURCES` | Comma-separated source list; empty enables all |
+| `ASHBY_ORGS` | Comma-separated Ashby org slugs to poll |
+| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | Alert destination; leave blank to log only |
+| `SENDER_NAME` | Name used in the email signature |
+| `SENDER_GITHUB` | Portfolio link appended to each draft |
+| `GMAIL_USER` / `GMAIL_APP_PASSWORD` | Optional direct-send path |
+
+Sender profile and repo preferences live in `profile/outreach.json`. Copy
+`profile/outreach.example.json` to start — that file is gitignored because it can hold credentials.
+
+### Scheduling
+
+- **GitHub Actions** — `.github/workflows/daily-jobs.yml`, cron `0 6 * * *` (07:00 WAT)
+- **Windows** — `run-daily.ps1` via Task Scheduler, logs to `logs/`
+
+## Tests
+
+```bash
+npm test
+```
+
+29 tests cover the parts that are easy to get quietly wrong: entity decoding and HTML stripping,
+URL canonicalization, salary formatting, remote detection, geography classification, scoring gates,
+company caps, fuzzy dedupe, and HN reply filtering.
+
+## Limits
+
+- Sources are free-tier public APIs, so a board can change shape without warning. Each adapter is
+  isolated, and a source failure degrades the run rather than killing it.
+- Drafting is template-based. It is grounded and honest, but it will not write like a human who
+  researched the company for an hour.
+- The JSON store is per-machine. A scheduled CI run and a local run do not share state.
+- Email discovery is best-effort: many postings simply do not list a contact address.
+
+## Contact
+
+[Email](mailto:ubaniekan29@gmail.com) · [X](https://x.com/Psarmhye) · [GitHub](https://github.com/Sammysystems)

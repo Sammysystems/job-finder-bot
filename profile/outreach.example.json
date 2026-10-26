@@ -1,0 +1,19 @@
+{
+  "sender": {
+    "name": "Your Name",
+    "github": "https://github.com/your-handle",
+    "githubUsername": "your-handle",
+    "email": "you@example.com"
+  },
+  "approach": "draft-first",
+  "prioritizeRepos": ["your-best-repo"],
+  "avoidRepos": [],
+  "rules": {
+    "useRepoAsPortfolio": true,
+    "maxRepos": 1,
+    "showBothIfEmailAndLink": true,
+    "emailFirst": true,
+    "noAutoSubmit": true,
+    "language": "english-only"
+  }
+}

@@ -23,6 +23,12 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund --force
 
+      - name: Type-check
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
       - name: Create data directory
         run: mkdir -p data logs
 
@@ -30,4 +36,6 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SENDER_NAME: ${{ secrets.SENDER_NAME }}
+          SENDER_GITHUB: ${{ vars.SENDER_GITHUB }}
         run: npm run daily

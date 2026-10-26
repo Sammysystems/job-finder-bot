@@ -7,7 +7,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PROFILE_PATH = path.resolve(HERE, "../../profile/outreach.json");
 
 interface OutreachProfile {
-  sender: { name: string; github: string; email: string; gmailAppPassword: string };
+  sender: { name: string; github: string; email: string; gmailAppPassword?: string };
 }
 
 function loadProfile(): OutreachProfile {
@@ -20,14 +20,17 @@ function loadProfile(): OutreachProfile {
   } catch {}
   return {
     sender: {
-      name: "Samuel",
-      github: "https://github.com/Sammysystems",
-      email: process.env.GMAIL_USER || "",
-      gmailAppPassword: process.env.GMAIL_APP_PASSWORD || "",
+      name: process.env.SENDER_NAME || "AI Automation Engineer",
+      github: process.env.SENDER_GITHUB || "https://github.com/Sammysystems",
+      email: "",
     },
-  } as any;
+  };
 }
 
+/**
+ * Credentials resolve from the environment first so a cloned repo runs without
+ * a personal profile file. profile/outreach.json is a local convenience only.
+ */
 export async function sendGmail(opts: {
   to: string;
   subject: string;
@@ -35,11 +38,12 @@ export async function sendGmail(opts: {
   replyTo?: string;
 }): Promise<{ ok: boolean; error?: string; messageId?: string }> {
   const profile = loadProfile();
-  const user = profile.sender.email || process.env.GMAIL_USER;
-  const pass = profile.sender.gmailAppPassword || process.env.GMAIL_APP_PASSWORD;
+  const user = process.env.GMAIL_USER || profile.sender.email;
+  const pass = process.env.GMAIL_APP_PASSWORD || profile.sender.gmailAppPassword;
+  const fromName = process.env.SENDER_NAME || profile.sender.name || "AI Automation Engineer";
 
   if (!user || !pass) {
-    return { ok: false, error: "Missing Gmail credentials (profile.outreach.json or env)" };
+    return { ok: false, error: "Missing Gmail credentials (set GMAIL_USER and GMAIL_APP_PASSWORD)" };
   }
 
   try {
@@ -49,7 +53,7 @@ export async function sendGmail(opts: {
     });
 
     const info = await transporter.sendMail({
-      from: `"Samuel" <${user}>`,
+      from: `"${fromName}" <${user}>`,
       to: opts.to,
       subject: opts.subject,
       text: opts.text,
