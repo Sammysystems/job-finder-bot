@@ -17,9 +17,9 @@ export async function sendOutreachPackets(jobs: (Job | ScoredJob)[]): Promise<{ 
   let sent = 0;
   for (const job of jobs) {
     try {
-      const { draft } = prepareEmailPacket(job as Job);
-      const toEmail = (draft.toEmail || (job as Job).email || "").trim();
-      
+      const { draft, toEmail: foundEmail } = prepareEmailPacket(job as Job);
+      const toEmail = (foundEmail || (job as Job).email || "").trim();
+
       let text = `📧 Email Draft\n`;
       text += `Role: ${escapeHtml(job.title)}\n`;
       text += `Company: ${escapeHtml(job.company || "Unknown")}\n`;
@@ -29,13 +29,8 @@ export async function sendOutreachPackets(jobs: (Job | ScoredJob)[]): Promise<{ 
         text += `To: Not found – apply via Job Link\n`;
       }
       text += `Source: ${(job as Job).source || "unknown"}\n\n`;
-      if (toEmail) {
-        text += `Subject: ${escapeHtml(draft.subject)}\n\n`;
-        text += `${escapeHtml(draft.body)}\n\n`;
-      } else {
-        text += `Subject: ${escapeHtml(draft.subject)}\n\n`;
-        text += `${escapeHtml(draft.body)}\n\n`;
-      }
+      text += `Subject: ${escapeHtml(draft.subject)}\n\n`;
+      text += `${escapeHtml(draft.body)}\n\n`;
       text += `🔗 Job Link: ${job.url}\n`;
       text += `\n— Copy & send/apply manually —`;
       

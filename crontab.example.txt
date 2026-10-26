@@ -1,2 +1,0 @@
-# Job Finder Bot - Run daily at 07:00 (server time)
-0 7 * * * cd /home/ubuntu/job-finder-bot && /usr/bin/npm run daily >> /home/ubuntu/job-finder-bot/logs/cron-daily.log 2>&1
