@@ -2,8 +2,8 @@ name: Job Finder Bot - Daily Run
 
 on:
   schedule:
-    # Runs at 07:00 UTC daily (adjust if needed)
-    - cron: '0 7 * * *'
+    # Runs at 07:00 WAT (UTC+1) = 06:00 UTC
+    - cron: '0 6 * * *'
   workflow_dispatch: # Allows manual trigger from GitHub
 
 jobs:

@@ -23,12 +23,21 @@ export async function sendOutreachPackets(jobs: (Job | ScoredJob)[]): Promise<{ 
       let text = `📧 Email Draft\n`;
       text += `Role: ${escapeHtml(job.title)}\n`;
       text += `Company: ${escapeHtml(job.company || "Unknown")}\n`;
-      if (toEmail) text += `To: ${escapeHtml(toEmail)}\n`;
+      if (toEmail) {
+        text += `To: ${escapeHtml(toEmail)}\n`;
+      } else {
+        text += `To: Not found – apply via Job Link\n`;
+      }
       text += `Source: ${(job as Job).source || "unknown"}\n\n`;
-      text += `Subject: ${escapeHtml(draft.subject)}\n\n`;
-      text += `${escapeHtml(draft.body)}\n\n`;
+      if (toEmail) {
+        text += `Subject: ${escapeHtml(draft.subject)}\n\n`;
+        text += `${escapeHtml(draft.body)}\n\n`;
+      } else {
+        text += `Subject: ${escapeHtml(draft.subject)}\n\n`;
+        text += `${escapeHtml(draft.body)}\n\n`;
+      }
       text += `🔗 Job Link: ${job.url}\n`;
-      text += `\n— Copy & send manually via Gmail —`;
+      text += `\n— Copy & send/apply manually —`;
       
       const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: "POST",

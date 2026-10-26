@@ -121,14 +121,12 @@ export async function notifyJobs(jobs: Job[]): Promise<NotifyResult> {
   // Send outreach/email approval packets for jobs with emails (HN etc)
   let outreachSent = 0;
   try {
-    const jobsWithEmail = scoredJobs.filter((j) => (j as any).email);
-    if (jobsWithEmail.length > 0) {
-      const out = await sendOutreachPackets(jobsWithEmail);
-      outreachSent = out.sent;
-    }
-  } catch {
-    // ignore
-  }
+      try {
+        const out = await sendOutreachPackets(scoredJobs);
+        outreachSent = out.sent;
+      } catch {
+        // ignore
+      }
 
   if (sent > 0) {
     const store = loadSeenJobs();
