@@ -118,24 +118,23 @@ export async function notifyJobs(jobs: Job[]): Promise<NotifyResult> {
     }
   }
 
-  // Send outreach/email approval packets for jobs with emails (HN etc)
-  let outreachSent = 0;
-  try {
-      try {
-        const out = await sendOutreachPackets(scoredJobs);
-        outreachSent = out.sent;
-      } catch {
-        // ignore
-      }
+    // Send outreach/email approval packets for jobs with emails (HN etc)
+    let outreachSent = 0;
+    try {
+      const out = await sendOutreachPackets(scoredJobs);
+      outreachSent = out.sent;
+    } catch {
+      // ignore
+    }
 
-  if (sent > 0) {
-    const store = loadSeenJobs();
-    for (const job of jobs) markJobNotified(job, store);
-    saveSeenJobs(store);
+    if (sent > 0) {
+      const store = loadSeenJobs();
+      for (const job of jobs) markJobNotified(job, store);
+      saveSeenJobs(store);
+    }
+
+    return { attempted: jobs.length, sent, skipped: false, outreachSent };
   }
-
-  return { attempted: jobs.length, sent, skipped: false, outreachSent };
-}
 
 const jobSchema = z.object({
   id: z.string(),
