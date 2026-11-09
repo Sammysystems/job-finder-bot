@@ -13,7 +13,7 @@ import { normalizeJob, parseSalary } from "../normalize.js";
  */
 
 const ENDPOINT = "https://jobicy.com/api/v2/remote-jobs";
-const DEFAULT_TAGS = ["automation", "llm", "machine-learning", "python", "javascript"];
+const DEFAULT_TAGS = ["marketing", "creative"];
 const MAX_JOBS = 50;
 
 interface JobicyJob {

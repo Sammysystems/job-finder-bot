@@ -34,8 +34,9 @@ jobs:
 
       - name: Run daily job finder
         env:
+          JOB_SOURCE: registry
+          JOB_SOURCES: remotive,jobicy,arbeitnow,wwr,hn
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           SENDER_NAME: ${{ secrets.SENDER_NAME }}
-          SENDER_GITHUB: ${{ vars.SENDER_GITHUB }}
         run: npm run daily

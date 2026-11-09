@@ -25,8 +25,9 @@ function formatJobLine(job: ScoredJob, index: number): string {
   const company = job.company ? escapeHtml(job.company) : "Unknown";
   const location = job.location ? escapeHtml(job.location) : "Remote";
   const score = job.score ? ` [${job.score}]` : "";
-  
-  return `${index + 1}. <b>${title}</b>${score}\n   ${company} • ${location}\n   <a href="${escapeHtml(job.url)}">Apply →</a>`;
+  const evidence = job.matchedTerms.map(escapeHtml).join(", ");
+
+  return `${index + 1}. <b>${title}</b>${score}\n   ${company} • ${location}\n   Fit: ${escapeHtml(job.roleFamily)} — ${evidence}\n   <a href="${escapeHtml(job.url)}">Apply →</a>`;
 }
 
 function formatBrief(jobs: ScoredJob[]): string {
@@ -147,6 +148,7 @@ const jobSchema = z.object({
   source: z.string(),
   remote: z.boolean().optional(),
   salary: z.string().optional(),
+  roleFamily: z.string().optional(),
   matchedTerms: z.array(z.string()).optional(),
   score: z.number().optional(),
   reasons: z.array(z.string()).optional(),

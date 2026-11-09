@@ -7,6 +7,7 @@ import { loadSeenJobs } from "../db/index.js";
 import { classifyEligibility } from "../eligibility.js";
 
 export interface MatchedJob extends Job {
+  roleFamily: string;
   matchedTerms: string[];
   score: number;
   reasons: string[];
@@ -45,6 +46,7 @@ const jobSchema = z.object({
   source: z.string(),
   remote: z.boolean().optional(),
   salary: z.string().optional(),
+  roleFamily: z.string().optional(),
   matchedTerms: z.array(z.string()).optional(),
   score: z.number().optional(),
   reasons: z.array(z.string()).optional(),

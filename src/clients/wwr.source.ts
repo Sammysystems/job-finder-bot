@@ -5,15 +5,19 @@ import { fetchText } from "./http.js";
 import { normalizeJob } from "../normalize.js";
 
 /**
- * We Work Remotely category feed — public RSS, no key.
+ * We Work Remotely marketing and design category feeds — public RSS, no key.
  *
- *   GET https://weworkremotely.com/categories/remote-programming-jobs.rss
+ *   GET https://weworkremotely.com/categories/remote-sales-and-marketing-jobs.rss
+ *   GET https://weworkremotely.com/categories/remote-design-jobs.rss
  *
- * 25 items per feed. Titles arrive as "Company: Role", descriptions are
- * HTML-escaped inside CDATA, and `pubDate` is RFC 822.
+ * Titles arrive as "Company: Role", descriptions are HTML-escaped inside
+ * CDATA, and `pubDate` is RFC 822.
  */
 
-const ENDPOINT = "https://weworkremotely.com/categories/remote-programming-jobs.rss";
+const ENDPOINTS = [
+  "https://weworkremotely.com/categories/remote-sales-and-marketing-jobs.rss",
+  "https://weworkremotely.com/categories/remote-design-jobs.rss",
+];
 
 const parser = new XMLParser({
   ignoreAttributes: false,
@@ -79,24 +83,44 @@ function toJob(raw: WwrItem): Job | null {
   });
 }
 
-export function createWwrSource(): JobSource {
+export interface WwrOptions {
+  endpoints?: string[];
+}
+
+export function createWwrSource(options: WwrOptions = {}): JobSource {
+  const endpoints = options.endpoints ?? ENDPOINTS;
+
   return {
     name: "wwr",
     async fetchJobs() {
-      const xml = await fetchText(ENDPOINT, {
-        headers: { accept: "application/rss+xml, application/xml, text/xml" },
-      });
-
-      const parsed = parser.parse(xml) as {
-        rss?: { channel?: { item?: WwrItem | WwrItem[] } };
-      };
-
-      const items = asArray(parsed.rss?.channel?.item);
       const seen = new Map<string, Job>();
+      const failures: string[] = [];
 
-      for (const item of items) {
-        const job = toJob(item);
-        if (job && !seen.has(job.url)) seen.set(job.url, job);
+      for (const endpoint of endpoints) {
+        try {
+          const xml = await fetchText(endpoint, {
+            headers: { accept: "application/rss+xml, application/xml, text/xml" },
+          });
+          const parsed = parser.parse(xml) as {
+            rss?: { channel?: { item?: WwrItem | WwrItem[] } };
+          };
+          if (!parsed.rss?.channel) {
+            throw new Error("RSS response did not contain a channel");
+          }
+
+          for (const item of asArray(parsed.rss.channel.item)) {
+            const job = toJob(item);
+            if (job && !seen.has(job.url)) seen.set(job.url, job);
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          failures.push(`${endpoint}: ${message}`);
+          console.warn(`[wwr] feed failed: ${endpoint}: ${message}`);
+        }
+      }
+
+      if (endpoints.length > 0 && failures.length === endpoints.length) {
+        throw new Error(`WWR: all category feeds failed: ${failures.join("; ")}`);
       }
 
       return [...seen.values()];

@@ -14,13 +14,11 @@
     "start:listener": "node --import tsx src/approval-listener-text.ts"
   },
   "dependencies": {
-    "@types/nodemailer": "^8.0.2",
     "@voltagent/core": "2.8.0",
     "@voltagent/logger": "2.0.2",
     "ai": "^6.0.209",
     "dotenv": "^16.4.5",
     "fast-xml-parser": "^5.11.2",
-    "nodemailer": "^10.2.1",
     "zod": "4.4.3"
   },
   "devDependencies": {

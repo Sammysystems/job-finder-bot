@@ -4,20 +4,19 @@ Short records of the choices that shaped the build, including the ones I reverse
 
 ---
 
-## 001 — Deterministic email drafting, no model call
+## 001 — Deterministic application drafts, no model call
 
 **Context.** The obvious "AI" version of this tool sends the job description to an LLM with a
-"write a cold email" prompt.
+"write an application" prompt.
 
-**Decision.** Assemble the email from templates and facts extracted from the posting, plus one
-portfolio repo the sender actually owns. No model in the path.
+**Decision.** Quote relevant evidence from the posting and leave candidate experience and work
+samples as explicit placeholders until the user configures them. No model in the path.
 
-**Why.** A cold email is a claim about what you have done. A model that is 97% accurate still
-fabricates in the remaining 3%, and the failure is invisible until a recruiter replies. Determinism
-also makes the output testable and the cost exactly zero.
+**Why.** An application is a claim about what the candidate has done. The bot must not invent
+experience, metrics, or portfolio relevance. Determinism also makes the output testable.
 
-**Trade-off.** The writing is less varied than a good model. Accepted: truth beats fluency in the
-one message that represents you.
+**Trade-off.** The user must complete the draft with their own evidence. Accepted: truth beats
+fluency in a message that represents the candidate.
 
 ---
 
@@ -51,13 +50,14 @@ a worldwide one.
 
 **Context.** The first version could send email from the bot after a Telegram approval.
 
-**Decision.** Removed. The bot now produces a copy-paste packet and the human sends it.
+**Decision.** The bot produces a copy-paste packet only. Email sending and ATS submission are
+disabled; the human reviews and submits.
 
 **Why.** Two reasons. Sending from the bot's mailbox makes the message look automated and puts a
 machine between you and a human on the first touch. And an approval listener that must stay running
 on a laptop is a reliability trap: if the machine sleeps, the reply is lost silently.
 
-**Consequence.** Approvals are simpler and more honest, at the cost of one manual step.
+**Consequence.** There is no irreversible application side effect in the bot, at the cost of a manual step.
 
 ---
 
@@ -92,3 +92,53 @@ rather than hidden.
 **Why.** Adapters change shape constantly and are covered by a live smoke script
 (`npm run test:fetch`). The gates encode judgment calls, which are exactly the things that should not
 silently regress.
+
+---
+
+## 008 — Require role-specific evidence before ranking
+
+**Context.** Prior digests repeatedly ranked general software-engineering roles for an AI-automation
+search because generic words in a description counted as proof of role fit.
+
+**Decision.** Require a title in one of the configured target families and evidence from at least two
+distinct responsibility groups in that family's description. Apply recency and other ranking
+bonuses only after role and location gates pass.
+
+**Trade-off.** This favors precision over volume; unusual but relevant postings may be missed. Measure
+precision against manually reviewed results before relaxing any gate.
+
+---
+
+## 009 — Curate default sources for the target role families
+
+**Context.** The previous defaults used an Ashby company list and technical search terms. Remotive's
+legacy search endpoint returned the same programming-heavy results for unrelated queries, and the
+We Work Remotely adapter read its programming category.
+
+**Decision.** Use Remotive's public RSS feed, Jobicy's marketing and creative tags, Arbeitnow's
+recent-job feed, We Work Remotely's sales/marketing and design feeds, and Hacker News hiring posts
+by default. Keep Remote OK and Ashby as explicit opt-ins.
+
+**Why.** The selected sources have live evidence of marketing, writing, or creative listings and
+provide posting text for the role-evidence gate. The default must not route primarily through
+technical-only feeds.
+
+**Trade-off.** Public feeds are limited and may not include every suitable vacancy. Measure live
+coverage and precision rather than implying exhaustive discovery.
+
+---
+
+## 010 — Add bounded adjacent marketing role families
+
+**Context.** The first live source run found only a small number of exact-title Creative Strategist,
+Copywriter, and Email Marketing Strategist matches.
+
+**Decision.** Add Content Strategist and Lifecycle Marketing title variants, while keeping each
+family gated by evidence from at least two distinct responsibility groups. Growth Copywriter remains
+within the Copywriter family.
+
+**Why.** These adjacent titles describe overlapping work without accepting generic marketing roles
+based on broad keywords alone.
+
+**Trade-off.** This may improve recall but does not guarantee two to five eligible jobs every day;
+source yield and geography still limit supply.

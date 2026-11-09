@@ -1,6 +1,6 @@
 import type { Job } from "./types.js";
 
-const DESCRIPTION_LIMIT = 2000;
+const DESCRIPTION_LIMIT = 10_000;
 
 const NAMED_ENTITIES: Record<string, string> = {
   amp: "&",
@@ -198,7 +198,7 @@ export interface NormalizeInput {
 
 /**
  * Single gate every source passes through: stable id, absolute url, plain-text
- * description capped at 2k, and a remote flag the scorer can trust.
+ * description capped at 10k, and a remote flag the scorer can trust.
  */
 export function normalizeJob(input: NormalizeInput): Job | null {
   const title = stripHtml(input.title).replace(/\s+/g, " ").trim();

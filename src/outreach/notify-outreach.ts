@@ -20,7 +20,7 @@ export async function sendOutreachPackets(jobs: (Job | ScoredJob)[]): Promise<{ 
       const { draft, toEmail: foundEmail } = prepareEmailPacket(job as Job);
       const toEmail = (foundEmail || (job as Job).email || "").trim();
 
-      let text = `📧 Email Draft\n`;
+      let text = `📝 Application Draft\n`;
       text += `Role: ${escapeHtml(job.title)}\n`;
       text += `Company: ${escapeHtml(job.company || "Unknown")}\n`;
       if (toEmail) {

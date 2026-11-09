@@ -1,11 +1,8 @@
 import type { Job } from "./types.js";
 import {
-  CORE_TITLE_PATTERNS,
-  ADJACENT_TITLE_PATTERNS,
-  AI_SIGNAL_PATTERNS,
-  SUPPORTING_KEYWORDS,
-  EXCLUDE_KEYWORDS,
-  EXCLUDE_TITLE_PATTERNS,
+  EXCLUDED_JOB_PATTERNS,
+  EXCLUDED_TITLE_PATTERNS,
+  TARGET_ROLE_FAMILIES,
   OPEN_REGION_PATTERNS,
   BLOCKED_LOCATION_PATTERNS,
   REMOTE_BY_DEFAULT_SOURCES,
@@ -13,9 +10,17 @@ import {
 import { classifyEligibility, eligibilityRank } from "./eligibility.js";
 
 export interface ScoredJob extends Job {
+  roleFamily: string;
   score: number;
   matchedTerms: string[];
   reasons: string[];
+}
+
+export interface TargetRoleMatch {
+  roleFamily: string;
+  roleLabel: string;
+  matchedTitle: string;
+  evidence: string[];
 }
 
 function lower(value?: string): string {
@@ -112,68 +117,56 @@ function isRemoteEligible(job: Job): boolean {
   return openRegion;
 }
 
-function countSignals(text: string, patterns: string[]): string[] {
-  const hits: string[] = [];
-  for (const pattern of patterns) {
-    if (containsPhrase(text, pattern)) hits.push(pattern.trim());
-  }
-  return hits;
-}
-
-/**
- * Returns null when a listing is not a fit. Gates run before scoring:
- * wrong title, wrong work, or a country-locked location is out regardless of
- * how fresh or how senior it is.
- */
-export function scoreJob(job: Job): ScoredJob | null {
+export function matchTargetRole(job: Job): TargetRoleMatch | null {
   const title = lower(job.title);
   const description = lower(job.description);
   const haystack = `${title} ${description}`;
-  const reasons: string[] = [];
-  let score = 0;
 
-  if (EXCLUDE_TITLE_PATTERNS.some((pattern) => containsPhrase(title, pattern))) return null;
-  if (EXCLUDE_KEYWORDS.some((pattern) => haystack.includes(lower(pattern)))) return null;
-
-  const coreMatches = countSignals(title, CORE_TITLE_PATTERNS);
-  const adjacentMatches = countSignals(title, ADJACENT_TITLE_PATTERNS);
-  const descriptionSignals = countSignals(description, AI_SIGNAL_PATTERNS);
-
-  const ROLE_WORDS =
-    /\b(engineer|developer|programmer|scientist|architect|builder|founding)\b/i;
-
-  // Either the title names AI/automation work, or it is a general engineering
-  // title that the description proves is AI/automation work.
-  const isCore = coreMatches.length > 0;
-  const isAdjacent = (adjacentMatches.length > 0 || ROLE_WORDS.test(title)) && descriptionSignals.length >= 1;
-  const isWebDev = false; // disable general web dev expansion for now - only AI/automation
-
-  if (!isCore && !isAdjacent && !isWebDev) {
-    if (job.source === "hn" && job.email && (/\bhiring\b/i.test(haystack) || ROLE_WORDS.test(title))) {
-      // allow
-    } else {
-      return null;
-    }
+  if (EXCLUDED_TITLE_PATTERNS.some((pattern) => containsPhrase(title, pattern))) {
+    return null;
+  }
+  if (EXCLUDED_JOB_PATTERNS.some((pattern) => containsPhrase(haystack, pattern))) {
+    return null;
   }
 
+  for (const family of TARGET_ROLE_FAMILIES) {
+    const matchedTitle = family.titlePatterns.find((pattern) => containsPhrase(title, pattern));
+    if (!matchedTitle) continue;
+
+    const evidence = family.evidenceGroups
+      .map((group) => group.find((signal) => containsPhrase(description, signal)))
+      .filter((signal): signal is string => Boolean(signal));
+
+    if (evidence.length < family.minimumEvidenceGroups) continue;
+
+    return {
+      roleFamily: family.id,
+      roleLabel: family.label,
+      matchedTitle,
+      evidence,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Role and geography must pass hard gates before recency or other ranking
+ * bonuses are considered.
+ */
+export function scoreJob(job: Job): ScoredJob | null {
+  const title = lower(job.title);
+  const reasons: string[] = [];
+  const roleMatch = matchTargetRole(job);
+  if (!roleMatch) return null;
   if (!isRemoteEligible(job)) return null;
 
-  if (isCore) {
-    score += Math.min(coreMatches.length, 2) * 6;
-    reasons.push(`core:${coreMatches[0]}`);
-  } else {
-    score += Math.min(adjacentMatches.length, 2) * 2;
-    reasons.push(`adjacent:${adjacentMatches[0]}`);
-  }
+  const eligibility = classifyEligibility(job);
+  if (eligibility.onsite && eligibility.tier === "onsite") return null;
 
-  score += Math.min(descriptionSignals.length, 4);
-  reasons.push(`signal:${descriptionSignals.length}`);
-
-  const supporting = countSignals(haystack, SUPPORTING_KEYWORDS);
-  if (supporting.length > 0) {
-    score += Math.min(supporting.length, 3) * 0.5;
-  }
-
+  let score = 10 + Math.max(0, roleMatch.evidence.length - 2) * 2;
+  reasons.push(`role:${roleMatch.roleLabel}`);
+  reasons.push(...roleMatch.evidence.map((term) => `evidence:${term}`));
   score += 3;
   reasons.push("remote");
 
@@ -200,8 +193,6 @@ export function scoreJob(job: Job): ScoredJob | null {
     reasons.push("junior");
   }
 
-  const eligibility = classifyEligibility(job);
-  if (eligibility.onsite && eligibility.tier === "onsite") return null;
   if (eligibility.tier === "usa") score -= 2;
   if (eligibility.tier === "emea") score -= 1;
   score += eligibilityRank(eligibility.tier);
@@ -219,8 +210,9 @@ export function scoreJob(job: Job): ScoredJob | null {
 
   return {
     ...job,
+    roleFamily: roleMatch.roleLabel,
     score: Math.round(score * 10) / 10,
-    matchedTerms: [...new Set([...coreMatches, ...adjacentMatches])],
+    matchedTerms: [...new Set([roleMatch.matchedTitle, ...roleMatch.evidence])],
     reasons,
   };
 }

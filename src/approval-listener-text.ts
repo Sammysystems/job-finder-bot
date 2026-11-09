@@ -1,6 +1,5 @@
 import "dotenv/config";
-import { getAllApps, markSent, markSkipped, markEdited, getApp } from "./outreach/applications.js";
-import { sendGmail } from "./outreach/gmail-sender.js";
+import { getAllApps, markSkipped, markEdited, getApp } from "./outreach/applications.js";
 import {
   loadEditSession,
   startEditSession,
@@ -104,28 +103,9 @@ async function poll() {
         if (hasPendingConfirm(fromChat)) {
           const conf = loadConfirmSession();
           if (textLower === "yes" || textLower === "y") {
-            if (conf.action === "send" && conf.jobId) {
-              const app = getApp(conf.jobId);
-              if (!app) {
-                clearConfirmSession();
-                await sendMsg(fromChat, "Draft not found.");
-                continue;
-              }
-              const to = app.draft.toEmail || app.job.email;
-              if (!to) {
-                clearConfirmSession();
-                await sendMsg(fromChat, "No recipient email on this job.");
-                continue;
-              }
-              const resSend = await sendGmail({ to, subject: app.draft.subject, text: app.draft.body });
-              if (resSend.ok) {
-                markSent(conf.jobId, resSend.messageId);
-                clearConfirmSession();
-                await sendMsg(fromChat, `SENT ✓\n\nJob: ${app.job.title} @ ${app.job.company || "Unknown"}\nTo: ${to}\nSubject: ${app.draft.subject}\nMessage ID: ${resSend.messageId || "sent"}\n\nPending: ${getPending().length} left. Reply LIST to see.`);
-              } else {
-                clearConfirmSession();
-                await sendMsg(fromChat, `Failed to send: ${resSend.error}`);
-              }
+            if (conf.action === "send") {
+              clearConfirmSession();
+              await sendMsg(fromChat, "Sending is disabled. Copy the draft and submit it yourself.");
               continue;
             } else if (conf.action === "skip" && conf.jobId) {
               const app = getApp(conf.jobId);
@@ -165,7 +145,7 @@ async function poll() {
           markEdited(session.jobId, parsed);
           clearEditSession();
           const app = getApp(session.jobId);
-          await sendMsg(fromChat, `EDIT SAVED ✓\n\nUpdated for ${app?.job.title || session.jobId} @ ${app?.job.company || ""}\nStatus: edited\n\nType SEND to send it, or LIST to see all.`);
+          await sendMsg(fromChat, `EDIT SAVED ✓\n\nUpdated for ${app?.job.title || session.jobId} @ ${app?.job.company || ""}\nStatus: edited\n\nCopy the draft and submit it yourself, or type LIST to see all.`);
           continue;
         }
 
@@ -179,7 +159,7 @@ async function poll() {
             continue;
           }
           const lines = pending.map((a,i) => `[${i+1}] ${a.job.title} @ ${a.job.company || "Unknown"}\n    To: ${a.draft.toEmail || a.job.email || "?"}\n    ID: ${a.jobId}\n    Status: ${a.status}`).join("\n\n");
-          await sendMsg(fromChat, `JOB FINDER | PENDING (${pending.length})\n\n${lines}\n\nReply: SEND [#|ID] | EDIT [#|ID] | SKIP [#|ID] | SHOW [#|ID]`);
+          await sendMsg(fromChat, `JOB FINDER | PENDING (${pending.length})\n\n${lines}\n\nReply: EDIT [#|ID] | SKIP [#|ID] | SHOW [#|ID]`);
           continue;
         }
 
@@ -207,27 +187,10 @@ async function poll() {
           continue;
         }
 
-        if (textLower === "send") {
+        if (textLower === "send" || textLower.startsWith("send ")) {
           clearEditSession();
-          const pending = getPending();
-          if (pending.length === 0) { await sendMsg(fromChat, "No pending drafts. Reply LIST to see."); continue; }
-          if (pending.length >= 2) {
-            await sendMsg(fromChat, "Which one do you want to send?\n\n" + pending.map((a,i)=>`[${i+1}] ${a.job.title} @ ${a.job.company} (${a.jobId})`).join("\n") + "\n\nReply: SEND 1 or SEND hn:xxx");
-            continue;
-          }
-          const app = pending[0];
-          startConfirmSession("send", app.jobId, fromChat);
-          await sendMsg(fromChat, `SEND CONFIRMATION\n\nJob: ${app.job.title} @ ${app.job.company || "Unknown"}\nTo: ${app.draft.toEmail || app.job.email || "?"}\nSubject: ${app.draft.subject}\n\nReply YES to send or NO to cancel`);
-          continue;
-        }
-
-        if (textLower.startsWith("send ")) {
-          clearEditSession();
-          const ref = rawText.trim().slice(5).trim();
-          const app = resolveAppByRef(ref);
-          if (!app) { await sendMsg(fromChat, "Not found. Reply LIST to see pending."); continue; }
-          startConfirmSession("send", app.jobId, fromChat);
-          await sendMsg(fromChat, `SEND CONFIRMATION\n\nJob: ${app.job.title} @ ${app.job.company || "Unknown"}\nTo: ${app.draft.toEmail || app.job.email || "?"}\nSubject: ${app.draft.subject}\n\nReply YES to send or NO to cancel`);
+          clearConfirmSession();
+          await sendMsg(fromChat, "Sending is disabled. Copy the draft and submit it yourself.");
           continue;
         }
 

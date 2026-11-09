@@ -18,6 +18,9 @@ const summarySchema = z.object({
       company: z.string().optional(),
       location: z.string().optional(),
       url: z.string(),
+      roleFamily: z.string(),
+      score: z.number(),
+      matchedTerms: z.array(z.string()),
     })
   ),
 });
@@ -66,6 +69,9 @@ export const jobFinderWorkflow = createWorkflowChain({
           company: j.company,
           location: j.location,
           url: j.url,
+          roleFamily: j.roleFamily,
+          score: j.score,
+          matchedTerms: j.matchedTerms,
         })),
       };
     },

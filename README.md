@@ -1,14 +1,14 @@
 # Job Finder Bot
 
-A job-search pipeline that turns seven free job feeds into a short, ranked shortlist of remote
-**AI automation / agent / LLM integration** roles — and drafts a grounded cold email for each one,
-ready to copy and send.
+A job-search pipeline that turns role-relevant public job feeds into a short, ranked shortlist of
+**creative strategist, copywriter, email/lifecycle marketing, and content strategist** roles — and
+prepares a posting-grounded application draft for each one.
 
 Built as a personal tool. The interesting work is not the fetching; it is deciding what *not* to show,
 and writing outreach that cannot invent a fact.
 
-> **No auto-apply, ever.** There is no ATS submission path (Greenhouse, Lever, Workday, Ashby,
-> Workable). Every packet is sent to Telegram for a human to read and send.
+> **Draft-only.** The bot never submits applications or sends email. You review each match, fill
+> in your relevant experience, and submit it yourself.
 
 ---
 
@@ -18,54 +18,57 @@ Two failure modes make job-search automation useless:
 
 1. **Noise.** Aggregators return hundreds of listings; most are the wrong role, the wrong
    timezone, or country-locked. A daily digest that is 80% irrelevant trains you to ignore it.
-2. **Fabrication.** "AI outreach" tools generate confident emails containing claims the model made up.
-   A single invented metric ends the conversation.
+2. **Fabrication.** Application drafts can make claims about experience the candidate has not
+   provided. A single invented result can undermine an application.
 
-This pipeline is built around both constraints: **default-deny filtering**, and **deterministic,
-evidence-bound drafting** — no LLM in the email path at all.
+This pipeline is built around both constraints: **default-deny role and location gates**, and
+**deterministic, evidence-bound drafts** with explicit placeholders for candidate details that
+have not yet been configured.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  S[7 free sources<br/>Ashby · Remotive · Jobicy<br/>Arbeitnow · RemoteOK<br/>WeWorkRemotely · HN] --> N[normalize]
+  S[Curated sources<br/>Remotive · Jobicy · Arbeitnow<br/>WWR Marketing/Design · HN] --> N[normalize]
   N --> D[dedupe]
   D --> E[eligibility]
   E --> SC[score + gate]
   SC --> R[rank & select<br/>max 10, max 2 per company]
   R --> B[Telegram brief]
   R --> DR[grounded draft]
-  DR --> P[Telegram packet]
-  P --> H[human sends / applies]
+  DR -->   P[Telegram draft]
+  P --> H[human reviews and submits]
 ```
 
 Every source passes through one normalizer: stable id, canonical URL, plain-text description capped
-at 2k, and a remote flag the scorer can trust. Dedupe collapses the same posting reached through two
-feeds using a canonical URL plus a fuzzy company/title match.
+at 10k so role evidence later in longer postings remains available, and a remote flag the scorer can
+trust. Dedupe collapses the same posting reached through two feeds using a canonical URL plus a
+fuzzy company/title match.
 
 ## What it produces
 
 One Telegram brief per run, followed by one packet per selected role:
 
 ```text
-📧 Email Draft
+📝 Application Draft
 
-Role:    AI Automation Engineer
+Role:    Copywriter
 Company: Example Co
 To:      hiring@example.com          (or: Not found – apply via Job Link)
-Source:  Ashby
-Subject: AI Automation Engineer at Example Co
+Source:  Remotive
+Subject: Application: Copywriter at Example Co
 
-Hi,
+Hello Example Co hiring team,
 
-<problem-first paragraph, written from the job description>
+I'm applying for the Copywriter role. Your posting highlights:
+"Write copy for landing pages and email campaigns."
 
-<why this specific work matters to them>
+Relevant experience: [Add a truthful example of relevant work and its result.]
 
-<one concrete first step + a short CTA>
+Work sample: [Add a relevant portfolio or work-sample link.]
 
-— <your sender name>
-https://github.com/your-handle
+Regards,
+<your name>
 
 🔗 Job Link
 https://jobs.example.com/ai-automation-engineer
@@ -73,8 +76,8 @@ https://jobs.example.com/ai-automation-engineer
 — Copy & send/apply manually —
 ```
 
-Packets are produced for **every** selected role, not just the ones with a contact address. When the
-posting lists no email, the packet says so and links the application page instead of silently skipping it.
+Packets are produced for **every** selected role, not just the ones with a contact address. When the posting lists no email, the packet says so and links the application page instead of
+silently skipping it.
 
 ## Design decisions
 
@@ -83,23 +86,24 @@ nothing but remote words. Any leftover place name — "Kansas", "Seoul", "Americ
 not worldwide. Country restictions are also read out of the title, because postings often encode them
 there ("Backend Developer — Remote from EU").
 
-**Two-tier role matching.** A title that names AI/automation work passes on its own. A generic
-engineering title passes only when the description proves AI/automation work. Everything else is
-rejected, no matter how fresh it is.
+**Evidence-gated role matching.** The title must identify one of the configured target role families,
+including close content and lifecycle-marketing neighbors.
+The description must also contain evidence from at least two distinct responsibility groups for that
+family. Generic software, AI research, and marketing roles do not pass because they share a broad
+keyword. Freshness and other ranking bonuses are applied only after both role and location gates pass.
 
-**Deterministic drafting.** The email is assembled from the job description and a portfolio repo the
-candidate actually owns. There is no model call, so there is nothing to hallucinate. This was a
-deliberate trade: a slightly less fluent email that is always true beats a fluent one that is sometimes not.
+**Deterministic drafting.** The application draft quotes a relevant sentence from the posting and
+leaves candidate experience and portfolio details as placeholders unless the user configures them.
+There is no model call and no invented work history.
 
-**Human approval.** Drafts are delivered, not sent. The bot never emails on its own.
+**Human submission.** Drafts are delivered, not sent. Email sending and ATS submission are disabled.
 
-**Ranking, not just filtering.** Roles are scored on role match, description signals, freshness,
-seniority, eligibility tier, and salary presence. At most two roles per company, so one employer
-cannot fill the brief with near-identical postings.
+**Ranking, not just filtering.** Only jobs that pass role evidence and geography gates are scored.
+The brief displays the matched role family and evidence. At most two roles per company are selected.
 
 ## Stack
 
-TypeScript · Node.js · VoltAgent workflow runtime · Zod · Telegram Bot API · Nodemailer (optional send path) · GitHub Actions / Windows Task Scheduler
+TypeScript · Node.js · VoltAgent workflow runtime · Zod · Telegram Bot API · GitHub Actions / Windows Task Scheduler
 
 No database. State is two JSON files on disk (`data/seen-jobs.json`, `data/applications.json`),
 which keeps the whole thing runnable on a free CI runner.
@@ -114,27 +118,24 @@ npm test
 npm run dev               # one run: fetch -> filter -> notify
 ```
 
-Optional, only if you want the bot to send mail itself (off by default):
-
-```env
-GMAIL_USER=you@gmail.com
-GMAIL_APP_PASSWORD=your-app-password
-```
-
 ### Configuration
 
 | Variable | Purpose |
 | --- | --- |
-| `JOB_SOURCE` | `stub` for offline fixtures, otherwise a specific source id |
-| `JOB_SOURCES` | Comma-separated source list; empty enables all |
-| `ASHBY_ORGS` | Comma-separated Ashby org slugs to poll |
+| `JOB_SOURCE` | `stub` for offline fixtures, `registry` for configured sources, or a single source name |
+| `JOB_SOURCES` | Comma-separated source list; empty uses curated defaults (`remotive,jobicy,arbeitnow,wwr,hn`); `JOB_SOURCE=all` opts into all sources |
+| `ASHBY_ORGS` | Optional Ashby org slugs; Ashby is excluded from the default because it lacks full job descriptions |
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | Alert destination; leave blank to log only |
-| `SENDER_NAME` | Name used in the email signature |
-| `SENDER_GITHUB` | Portfolio link appended to each draft |
-| `GMAIL_USER` / `GMAIL_APP_PASSWORD` | Optional direct-send path |
+| `SENDER_NAME` | Name used in the application-draft signature |
 
-Sender profile and repo preferences live in `profile/outreach.json`. Copy
-`profile/outreach.example.json` to start — that file is gitignored because it can hold credentials.
+Candidate experience and portfolio details live in `profile/outreach.json`. Copy
+`profile/outreach.example.json` and fill them in; the file is gitignored so personal details remain local.
+
+The default feeds are configured for role coverage: Remotive's public RSS feed; Jobicy's `marketing`
+and `creative` tags; Arbeitnow's broad recent-job feed; We Work Remotely's sales/marketing and design
+RSS categories; and Hacker News' latest "Who is hiring?" thread. Remote OK and Ashby remain available
+as opt-in sources, but are omitted from normal runs because current feeds are broad or lack the job
+description detail needed to validate a role.
 
 ### Scheduling
 
@@ -147,16 +148,16 @@ Sender profile and repo preferences live in `profile/outreach.json`. Copy
 npm test
 ```
 
-29 tests cover the parts that are easy to get quietly wrong: entity decoding and HTML stripping,
-URL canonicalization, salary formatting, remote detection, geography classification, scoring gates,
-company caps, fuzzy dedupe, and HN reply filtering.
+Tests cover normalization, geography, each target role's title and description evidence gates,
+rejection of unrelated roles, draft grounding, company caps, fuzzy dedupe, and HN reply filtering.
 
 ## Limits
 
 - Sources are free-tier public APIs, so a board can change shape without warning. Each adapter is
   isolated, and a source failure degrades the run rather than killing it.
-- Drafting is template-based. It is grounded and honest, but it will not write like a human who
-  researched the company for an hour.
+- Strict matching favors precision over volume and may miss relevant jobs whose titles or descriptions
+  use unusual wording. False-positive rates still need to be measured against reviewed live results.
+- Drafts require the candidate to fill in their relevant experience and portfolio details before submission.
 - The JSON store is per-machine. A scheduled CI run and a local run do not share state.
 - Email discovery is best-effort: many postings simply do not list a contact address.
 

@@ -37,19 +37,35 @@ It finds the latest thread through the Algolia API, keeps only top-level comment
 (`Company | Role | REMOTE (EU) | Full-time | $120k–$160k`), and extracts a contact email when one
 is present. That is the only source that yields direct addresses.
 
+The default registry includes only sources with useful marketing-role coverage and enough listing
+text to evaluate responsibilities:
+
+| Source | Query or category | Reason |
+| --- | --- | --- |
+| Remotive | Public RSS feed | Replaces the legacy search API, which returned the same programming-heavy results for unrelated search terms |
+| Jobicy | `marketing` and `creative` tags | Returns full descriptions from relevant job categories |
+| Arbeitnow | Recent broad-job pages | Broad feed with full descriptions; strict title and evidence gates reject unrelated roles |
+| We Work Remotely | Sales/marketing and design RSS categories | Includes marketing and creative-strategy listings with descriptions |
+| Hacker News | Latest "Who is hiring?" thread | Broad monthly hiring posts with full text and occasional contact details |
+
+Remote OK and Ashby remain opt-in, but are excluded from normal runs: Remote OK is a broad feed
+without a marketing category, while the current Ashby adapter reads only configured boards and
+doesn't fetch full job descriptions. That is the only source that yields direct addresses.
+
 ## Filtering
 
 Three gates run before anything is scored, in order — each is a hard reject:
 
-1. **Title exclusion** — SRE, DevOps, infra, data, ML research, mobile, Go/PHP/Ruby/Java/SAP, design,
-   GTM and similar roles are out regardless of description.
-2. **Role proof** — either the title names AI/automation work, or the title is a general engineering
-   title *and* the description contains AI/automation signals. Nothing else survives.
-3. **Geography** — onsite and hybrid are rejected; country-locked remote roles are rejected.
+1. **Target title** — the title must identify a Creative Strategist, Copywriter, Email/Lifecycle
+   Marketing, or Content Strategist role. Generic engineering, AI research, and unrelated marketing
+   titles are rejected.
+2. **Role proof** — the description must match at least two distinct responsibility groups for the
+   detected role family. Generic terms such as "API", "AI", or "SaaS" do not count as role evidence.
+3. **Geography** — onsite, hybrid, and country-locked remote roles are rejected.
 
-Only then does scoring add weight for role match, description signals, freshness, seniority, salary
-presence, eligibility tier, and known target companies. `rankAndSelect()` sorts by score, breaks ties
-by freshness, and caps each company at two roles.
+Only after all gates pass does scoring consider evidence breadth, freshness, seniority, salary, and
+eligibility. Each result includes the role family and matched evidence terms so the shortlist explains
+why it passed. `rankAndSelect()` sorts by score and caps each company at two roles.
 
 ## Eligibility
 
@@ -81,12 +97,10 @@ feeds carry it.
 
 ## Delivery
 
-`notify-outreach.ts` formats one plain-text packet per role. There are no inline buttons: the packet
-is designed to be read, copied, and sent from a phone. Credentials are never required for this path.
-
-The optional Gmail sender (`src/outreach/gmail-sender.ts`) reads credentials from environment
-variables first and only falls back to the local profile. It exists for convenience, not for
-automation — nothing calls it without a human action.
+`notify-outreach.ts` formats one plain-text application draft per role. Drafts quote relevant wording
+from the job description and leave candidate evidence as placeholders unless configured. They are
+designed to be reviewed, copied, and submitted by the candidate. No email sender or ATS submission
+path is available.
 
 ## Failure model
 
@@ -100,5 +114,5 @@ automation — nothing calls it without a human action.
 ## Deliberate limits
 
 - **No database.** Two JSON files are enough for one user and keep the CI runner stateless between runs.
-- **No LLM in the email path.** Determinism was chosen over fluency (see `decisions.md`).
+- **No LLM in the application-draft path.** Determinism was chosen over fluency (see `decisions.md`).
 - **No auto-apply.** ATS forms are the one place where an automated action has real, irreversible cost.

@@ -12,7 +12,8 @@ import { hackerNewsSource } from "../signals/hn.source.js";
  * One place that knows every source.
  *
  * `JOB_SOURCES` is a comma-separated list; unknown names are reported once and
- * skipped rather than silently ignored. Leaving it empty enables every source.
+ * skipped rather than silently ignored. Leaving it empty enables the curated
+ * marketing-relevant sources. `JOB_SOURCE=all` opts into every source.
  * `JOB_SOURCE=ashby|remotive|...` still works as a single-source shortcut, and
  * `JOB_SOURCE=stub` is handled by clients/index.ts before this point.
  */
@@ -28,6 +29,7 @@ export const SOURCE_FACTORIES: Record<string, () => JobSource> = {
 };
 
 export const SOURCE_NAMES = Object.keys(SOURCE_FACTORIES);
+export const DEFAULT_SOURCE_NAMES: string[] = ["remotive", "jobicy", "arbeitnow", "wwr", "hn"];
 
 export interface SourceReport {
   source: string;
@@ -56,11 +58,12 @@ export function selectedSourceNames(env: NodeJS.ProcessEnv = process.env): {
 
   if (!raw) {
     const single = env.JOB_SOURCE?.trim().toLowerCase();
-    if (single && single !== "stub" && single !== "registry" && single !== "all") {
+    if (single === "all") return { names: SOURCE_NAMES, unknown: [] };
+    if (single && single !== "stub" && single !== "registry") {
       if (SOURCE_FACTORIES[single]) return { names: [single], unknown: [] };
-      return { names: SOURCE_NAMES, unknown: [single] };
+      return { names: DEFAULT_SOURCE_NAMES, unknown: [single] };
     }
-    return { names: SOURCE_NAMES, unknown: [] };
+    return { names: DEFAULT_SOURCE_NAMES, unknown: [] };
   }
 
   const requested = raw
@@ -79,7 +82,7 @@ export function selectedSourceNames(env: NodeJS.ProcessEnv = process.env): {
     }
   }
 
-  return { names: names.length ? names : SOURCE_NAMES, unknown };
+  return { names: names.length ? names : DEFAULT_SOURCE_NAMES, unknown };
 }
 
 /**

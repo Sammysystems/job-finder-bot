@@ -1,83 +1,100 @@
+import { XMLParser } from "fast-xml-parser";
 import type { Job } from "../types.js";
 import type { JobSource } from "./types.js";
-import { fetchJson } from "./http.js";
-import { normalizeJob, parseSalary } from "../normalize.js";
+import { fetchText } from "./http.js";
+import { normalizeJob } from "../normalize.js";
 
 /**
- * Remotive public API — documented, free, no key.
- *
- *   GET https://remotive.com/api/remote-jobs?search=<term>&limit=<n>
- *
- * Remotive asks that API users not re-post their listings wholesale; we only
- * surface titles, links and a short excerpt to one person.
+ * Remotive's public RSS feed, recommended by its API documentation.
+ * The legacy search API currently returns the same programming-heavy results
+ * for different search terms, so use the feed and let the role gate decide fit.
+ * Listings are shared with Remotive attribution and their original links intact.
  */
+const ENDPOINT = "https://remotive.com/remote-jobs/feed";
 
-const ENDPOINT = "https://remotive.com/api/remote-jobs";
-const DEFAULT_QUERIES = [
-  "automation",
-  "ai",
-  "llm",
-  "agent",
-  "integration",
-  "typescript",
-  "n8n",
-];
-const MAX_JOBS = 200;
+const parser = new XMLParser({
+  ignoreAttributes: false,
+  attributeNamePrefix: "@_",
+  parseTagValue: false,
+  parseAttributeValue: false,
+  trimValues: true,
+  removeNSPrefix: true,
+});
 
-interface RemotiveJob {
-  id?: number | string;
-  url?: string;
+interface RemotiveItem {
   title?: string;
-  company_name?: string;
-  candidate_required_location?: string;
-  salary?: string;
+  jobId?: string;
+  company?: string;
+  location?: string;
+  type?: string;
+  guid?: string | { "#text"?: string };
+  link?: string;
+  pubDate?: string;
+  category?: string;
   description?: string;
-  publication_date?: string;
 }
 
-interface RemotiveResponse {
-  jobs?: RemotiveJob[];
+interface RemotiveFeed {
+  rss?: { channel?: { item?: RemotiveItem | RemotiveItem[] } };
 }
 
-function toJob(raw: RemotiveJob): Job | null {
+export interface RemotiveOptions {
+  feedUrl?: string;
+}
+
+function asArray<T>(value: T | T[] | undefined): T[] {
+  if (value === undefined || value === null) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+function textOf(value: unknown): string | undefined {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object" && "#text" in value) {
+    const text = (value as { "#text"?: unknown })["#text"];
+    return typeof text === "string" ? text : undefined;
+  }
+  return undefined;
+}
+
+function toJob(raw: RemotiveItem): Job | null {
   return normalizeJob({
-    id: raw.id,
+    id: raw.jobId,
     title: raw.title,
-    company: raw.company_name,
-    location: raw.candidate_required_location,
-    url: raw.url,
-    description: raw.description,
-    postedAt: raw.publication_date,
-    salary: parseSalary({ text: raw.salary }),
+    company: raw.company,
+    location: raw.location,
+    url: raw.link || textOf(raw.guid),
+    description: [raw.category, raw.type, raw.description].filter(Boolean).join("\n\n"),
+    postedAt: raw.pubDate,
     source: "remotive",
     remote: true,
   });
 }
 
-export interface RemotiveOptions {
-  queries?: string[];
-  limit?: number;
+export function parseRemotiveFeed(xml: string): Job[] {
+  const parsed = parser.parse(xml) as RemotiveFeed;
+  if (!parsed.rss?.channel) {
+    throw new Error("Remotive: RSS response did not contain a channel");
+  }
+
+  const seen = new Map<string, Job>();
+  for (const item of asArray(parsed.rss.channel.item)) {
+    const job = toJob(item);
+    if (job && !seen.has(job.url)) seen.set(job.url, job);
+  }
+
+  return [...seen.values()];
 }
 
 export function createRemotiveSource(options: RemotiveOptions = {}): JobSource {
-  const queries = options.queries ?? DEFAULT_QUERIES;
-  const limit = options.limit ?? MAX_JOBS;
+  const feedUrl = options.feedUrl ?? ENDPOINT;
 
   return {
     name: "remotive",
     async fetchJobs() {
-      const seen = new Map<string, Job>();
-
-      for (const query of queries) {
-        const url = `${ENDPOINT}?search=${encodeURIComponent(query)}&limit=${limit}`;
-        const payload = await fetchJson<RemotiveResponse>(url);
-        for (const raw of payload.jobs ?? []) {
-          const job = toJob(raw);
-          if (job && !seen.has(job.url)) seen.set(job.url, job);
-        }
-      }
-
-      return [...seen.values()];
+      const xml = await fetchText(feedUrl, {
+        headers: { accept: "application/rss+xml, application/xml, text/xml" },
+      });
+      return parseRemotiveFeed(xml);
     },
   };
 }
